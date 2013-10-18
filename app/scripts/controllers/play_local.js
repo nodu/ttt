@@ -3,17 +3,7 @@
 angular.module('TicketyApp')
  .controller('MainCtrl', function($scope, $location, $timeout, $rootScope) {
   $rootScope.currentPage = 'play_local';
-    var X_WIN_PATTERNS = [
-          'xxx......',
-          '...xxx...',
-          '......xxx',
-          'x..x..x..',
-          '.x..x..x.',
-          '..x..x..x',
-          'x...x...x',
-          '..x.x.x..'
-        ];
-    var O_WIN_PATTERNS = X_WIN_PATTERNS.map(function(str){ return str.replace(/x/g, 'o');});
+  not
 
     var turnNum = 0;
     $scope.turn = function () {

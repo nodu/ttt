@@ -5,6 +5,7 @@ angular.module('TicketyApp')
     $scope.mySymbol = $routeParams.mySymbol;    
     $scope.myTurn = false;
     $scope.turnNum = 0;
+    $scope.endGame = false;
     
     $scope.gameBoard = [" "," "," "," "," "," "," "," "," "];
     var gameBoardRef = new Firebase("https://hkwdi1-inst.firebaseio.com/room/" + $routeParams.id);
@@ -24,17 +25,24 @@ angular.module('TicketyApp')
     
     gameBoardRef.on('value', function(snapshot) {
       console.log("wait received");
-      if (!$scope.myTurn) {
+      if (!$scope.endGame && !$scope.myTurn) {
         if (snapshot.val() != null) {
           if (!arrays_equal(snapshot.val(), $scope.gameBoard)) {
-            console.log("diff gameboard");
-            if ($scope.testForWin()) {
-            		//do some stuff?
-            		console.log("L:AKJSFL:KJASFLKJSDFL WE WONNNNN!")
+            console.log("diff gameboard - data from remote");
+            if ($scope.testForLose($scope.mySymbol, snapshot.val())) {
+          		console.log("opponent won. you lost.");
+          		$timeout(function() {window.alert("You lost!");}, 50);
+          		$scope.endGame = true;
+          	} else if ($scope.testForCat()) {
+          		console.log("Cat Won");
+          		$scope.mySymbol = 'Cat';
+              $scope.endGame = true;
             } else {
+            	console.log("my turn. I can pick a square");
               $scope.myTurn = true;
               $scope.turnNum++;
             }
+            console.log("After opponent click: turn # " + $scope.turnNum + "$scope.gameBoard: " + snapshot.val().join(""));
           } else {
             console.log("same gameboard"); 
           }
@@ -46,71 +54,86 @@ angular.module('TicketyApp')
       }
     });
     
-
-            
+  
     $scope.handleClick = function(index) {
-      if ($scope.myTurn) {
-        $scope.gameBoard[index] = $scope.mySymbol;
-      	$scope.turnNum++;
-      	console.log("turn # " + $scope.turnNum + "$scope.gameBoard: " + $scope.gameBoard.join(""))
-         if ($scope.testForWin()) {
-          $timeout(function() {window.alert($scope.mySymbol.toUpperCase() + ' won!');}, 50);
-        }  else {
-          $scope.myTurn = false;
+    	if(!$scope.endGame) {
+	      if ($scope.myTurn && !$scope.isOccupied(index)) {
+	      	console.log("I clicked on index: " + index);
+
+	        $scope.gameBoard[index] = $scope.mySymbol;
+	      	
+	        if ($scope.testForWin($scope.mySymbol, $scope.gameBoard)) {
+	          $timeout(function() {window.alert('You won!');}, 50);
+            $scope.endGame = true;
+	        } else if ($scope.testForCat()) {
+	        	$scope.mySymbol = 'Cat';
+            $scope.endGame = true;
+	        }  else {
+	          $scope.myTurn = false;
+	          $scope.turnNum++;
+	        }
+
+	        console.log("After my click: turn # " + $scope.turnNum + "$scope.gameBoard: " + $scope.gameBoard.join(""));
+        } else {
+        	alert("It's NOT your turn fool!");
         }
       }
     }
+
+    $scope.isOccupied = function(index) {
+    	return ($scope.gameBoard[index] === 'x' || $scope.gameBoard[index] === 'o');
+    }
     
-    
-    function arrays_equal(a,b) { return !(a<b || b<a); }
+    // TODO  Shared functions => service!
+	  var X_WIN_PATTERNS = [
+	          'xxx......',
+	          '...xxx...',
+	          '......xxx',
+	          'x..x..x..',
+	          '.x..x..x.',
+	          '..x..x..x',
+	          'x...x...x',
+	          '..x.x.x..'
+	        ];
+	  var O_WIN_PATTERNS = X_WIN_PATTERNS.map(function(str){ return str.replace(/x/g, 'o');});
+	  
+	  function arrays_equal(a,b) { return !(a<b || b<a); }    
 
 
 
-//////////////////////////// Shared functions => service!
- $scope.testForWin = function() {
- 			console.log("hi testForWin has been fired!")
-      $scope.gameBoardStr = $scope.gameBoard.join("");
-      var patt1=/\s/g;
-      var properStr = $scope.gameBoardStr.replace(patt1, '.');
-      console.log("I'm gameboard string: " + properStr)
-      if ($scope.turnNum % 2 != 0) {
-        var patterns = X_WIN_PATTERNS;
-      } else {
-        var patterns = O_WIN_PATTERNS;
-      };
+	
+	 $scope.testForWin = function(playerSymbol, gameBoardData) {
+	 			console.log("hi testForWin has been fired!")
+	      $scope.gameBoardStr = gameBoardData.join("");
+	      var patt1=/\s/g;
+	      var properStr = $scope.gameBoardStr.replace(patt1, '.');
+	      console.log("I'm gameboard string: " + properStr)
+	      if (playerSymbol == "x") {
+	        var patterns = X_WIN_PATTERNS;
+	      } else {
+	        var patterns = O_WIN_PATTERNS;
+	      };
 
-      for (var i = 0; i < patterns.length; i++) {
-        var re = new RegExp(patterns[i], "i");
-        console.log(patterns[i] + " BREAK " + properStr.match(re))
-        console.log("I'm match checking " + properStr.match(re));
-        if (properStr.match(re)){
+	      for (var i = 0; i < patterns.length; i++) {
+	        var re = new RegExp(patterns[i], "i");
+	        if (properStr.match(re)){
+	          console.log("Pattern Matching success. We Won");
+	          return true;
+	        };
+	      };      
 
-          $scope.endGame = true;
-          console.log("L:AKJSFL:KJASFLKJSDFL WE WONNNNN!")
-          return true;
-        };
-      };
+	      return false;
+	  }
 
-      if ($scope.turnNum+1 === 9) { 
-        $scope.endGame = true;
-        $scope.mySymbol = 'Cat';
+	  $scope.testForLose = function(mySymbol, gameBoardData) {
+	    var opponentSymbol = mySymbol == "x" ? "o" : "x";
+	    return $scope.testForWin(opponentSymbol, gameBoardData);
+	  }
 
-      }
-
-      return false;
-  }
-
-  var X_WIN_PATTERNS = [
-          'xxx......',
-          '...xxx...',
-          '......xxx',
-          'x..x..x..',
-          '.x..x..x.',
-          '..x..x..x',
-          'x...x...x',
-          '..x.x.x..'
-        ];
-    var O_WIN_PATTERNS = X_WIN_PATTERNS.map(function(str){ return str.replace(/x/g, 'o');});
+	  $scope.testForCat = function() {
+	  	return ($scope.turnNum === 9);
+	  }
 
 
-    });
+
+  });
